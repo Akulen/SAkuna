@@ -512,7 +512,7 @@ bool SAkuna::valid(Move move) {
 
 // Values taken from https://www.chessprogramming.org/Simplified_Evaluation_Function
 const double VALUES[7] = {0, 100, 320, 330, 500, 900, 20000};
-const double POSITION_TABLE[8][8][8] = {
+const double POSITION_TABLE[9][8][8] = {
     {{0, 0, 0, 0, 0, 0, 0, 0},
      {0, 0, 0, 0, 0, 0, 0, 0},
      {0, 0, 0, 0, 0, 0, 0, 0},
@@ -521,7 +521,7 @@ const double POSITION_TABLE[8][8][8] = {
      {0, 0, 0, 0, 0, 0, 0, 0},
      {0, 0, 0, 0, 0, 0, 0, 0},
      {0, 0, 0, 0, 0, 0, 0, 0}},
-    // pawn
+    // pawn middle game
     {{ 0,  0,   0,   0,   0,   0,  0,  0},
      {50, 50,  50,  50,  50,  50, 50, 50},
      {10, 10,  20,  30,  30,  20, 10, 10},
@@ -575,6 +575,15 @@ const double POSITION_TABLE[8][8][8] = {
      {-10, -20, -20, -20, -20, -20, -20, -10},
      { 20,  20,   0,   0,   0,   0,  20,  20},
      { 20,  30,  10,   0,   0,  10,  30,  20}},
+    // pawn end game
+    {{ 0,  0,   0,   0,   0,   0,  0,  0},
+     {50, 50,  50,  50,  50,  50, 50, 50},
+     {10, 10,  20,  30,  30,  20, 10, 10},
+     { 5,  5,  10,  25,  25,  10,  5,  5},
+     { 0,  0,   0,  20,  20,   0,  0,  0},
+     {-5, -5, -10,   0,   0, -10, -5, -5},
+     {-5, -5, -10, -20, -20, -10, -5, -5},
+     { 0,  0,   0,   0,   0,   0,  0,  0}},
     // king end game
     {{-50, -40, -30, -20, -20, -30, -40, -50},
      {-30, -20, -10,   0,   0, -10, -20, -30},
@@ -602,7 +611,7 @@ double SAkuna::eval() {
         for(int j = 0; j < 8; ++j)
             if(board[i][j]->player >= 0) {
                 val += (1-2*(board[i][j]->player ^ player)) * (
-                        POSITION_TABLE[board[i][j]->pt + (endgame && board[i][j]->pt == king ? 1 : 0)][board[i][j]->player ? i : 7-i][board[i][j]->player ? 7-j : j]);
+                        POSITION_TABLE[board[i][j]->pt + (endgame ? (board[i][j]->pt == king ? 2 : board[i][j]->pt == pawn ? 6 : 0) : 0)][board[i][j]->player ? i : 7-i][board[i][j]->player ? 7-j : j]);
             }
     return val;
 
