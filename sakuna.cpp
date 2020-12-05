@@ -259,20 +259,22 @@ void Pawn::shadow_unmove(int r, int c, std::vector<std::vector<Piece*>> &board) 
     }
 }*/
 
-// TODO: handle castling undo
-void King::shadow_move(int r, int c, int, std::vector<std::vector<Piece*>> &board) {
-    memory.push_back(board[r][c]);
-    board[r][c] = this;
-    board[row][col] = new Clear(row, col);
-    row = r; col = c;
+void King::shadow_move(int r, int c, int halfmove_clock, std::vector<std::vector<Piece*>> &board) {
+    if(col - c == 2) { // castle queen side
+        board[r][0]->shadow_move(r, 3, halfmove_clock, board);
+    } else if(c - col == 2) { // castle king side
+        board[r][7]->shadow_move(r, 5, halfmove_clock, board);
+    }
+    Piece::shadow_move(r, c, halfmove_clock, board);
 }
 
-void King::shadow_unmove(int r, int c, int, std::vector<std::vector<Piece*>> &board) {
-    delete board[r][c];
-    board[r][c] = board[row][col];
-    board[row][col] = memory.back();
-    memory.pop_back();
-    row = r; col = c;
+void King::shadow_unmove(int r, int c, int halfmove_clock, std::vector<std::vector<Piece*>> &board) {
+    if(col - c == -2) { // castle queen side
+        board[r][3]->shadow_move(r, 0, halfmove_clock, board);
+    } else if(c - col == -2) { // castle king side
+        board[r][5]->shadow_move(r, 7, halfmove_clock, board);
+    }
+    Piece::shadow_unmove(r, c, halfmove_clock, board);
 }
 
 pair<char, unsigned long long int> King::moves(vector<vector<Piece*>> &board, char castling_rights, char) {
@@ -674,7 +676,7 @@ pair<Move, double> SAkuna::alphabeta(int depth=0, double alpha=-numeric_limits<d
 void SAkuna::start_search() {
     //nb_states = 0;
     Move bestMove = alphabeta().first;
-    //fprintf(stderr, "%d\n", nb_states);
+    ////fprintf(stderr, "%d\n", nb_states);
     printf("bestmove %s\n", bestMove.toString(board).c_str());
 }
 

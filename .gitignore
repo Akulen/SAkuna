@@ -1,5 +1,5 @@
 SAkuna
 *.gch
 *.o
-sampleuci
+*uci
 vgcore.*
