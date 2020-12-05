@@ -1,6 +1,7 @@
 Implement:
 - Three fold repetition
 - 50 moves
+- move generation compact same pattern
 Performances:
 - Opening Book
 - Perfect endgame

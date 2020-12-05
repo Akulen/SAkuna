@@ -6,6 +6,16 @@
 
 using namespace std;
 
+void display_bitmove(unsigned long long int moves) {
+    fprintf(stderr, "--------\n%llu\n", moves);
+    for(int i = 0; i < 8; ++i) {
+        for(int j = 0; j < 8; ++j)
+            fprintf(stderr, "%c ", (moves & (1LL << (8*i+j))) ? 'X' : '.');
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "--------\n");
+}
+
 string Move::toString(vector<vector<Piece*>> &board) {
     string ans = "";
     ans += c0+'a';
@@ -49,22 +59,19 @@ void Piece::shadow_promote(int, int, int halfmove_clock, Piece* pawn, std::vecto
     promotion = {halfmove_clock, pawn};
 }
 
-vector<Move> Piece::moves(vector<vector<Piece*>>&, char, char) {
+pair<char, unsigned long long int> Piece::moves(vector<vector<Piece*>>&, char, char) {
     assert(false);
 }
 
 bool Piece::can_take(Piece* p, std::vector<std::vector<Piece*>> &board, char en_passant) {
-    for(auto m: moves(board, 0, en_passant))
-        if(p->col == m.c1 && p->row == m.r1)
+    unsigned long long int mvs = moves(board, 0, en_passant).second;
+    for(int i = 0; i < 64; ++i) if(mvs & (1LL << i))
+        if(p->col == i%8 && p->row == i/8)
             return true;
     return false;
 }
 
 Piece::~Piece() {}
-
-vector<Move> Clear::moves(vector<vector<Piece*>>&, char, char) {
-    assert(false);
-}
 
 Clear::~Clear() {}
 
@@ -129,19 +136,19 @@ void Pawn::shadow_unmove(int r, int c, int halfmove_clock, std::vector<std::vect
     }
 }
 
-vector<Move> Pawn::moves(vector<vector<Piece*>> &board, char, char en_passant) {
-    vector<Move> ans;
+pair<char, unsigned long long int> Pawn::moves(vector<vector<Piece*>> &board, char, char en_passant) {
+    pair<char, unsigned long long int> ans = {8*row+col, 0};
     int front = row + (player == 1 ? -1 : 1);
     if(col > 0 && (board[front][col-1]->player == !player || (en_passant != -1 && row == 4-player && en_passant % 8 == 5-3*player && en_passant / 8 == col-1)))
-        ans.push_back(Move(row, col, front, col-1));
+        ans.second |= (1LL << (8LL*front+col-1));
     if(col < 7 && (board[front][col+1]->player == !player || (en_passant != -1 && row == 4-player && en_passant % 8 == 5-3*player && en_passant / 8 == col+1)))
-        ans.push_back(Move(row, col, front, col+1));
+        ans.second |= (1LL << (8LL*front+col+1));
     if(front >= 0 && front < 8 && board[front][col]->pt == clear) {
-        ans.push_back(Move(row, col, front, col));
+        ans.second |= (1LL << (8LL*front+col));
         if((row == 1 && player == 0) || (row == 6 && player == 1)) {
             front += (player == 1 ? -1 : 1);
             if(board[front][col]->pt == clear)
-                ans.push_back(Move(row, col, front, col));
+                ans.second |= (1LL << (8LL*front+col));
         }
     }
     return ans;
@@ -151,15 +158,15 @@ Pawn::~Pawn() {}
 
 const pair<int, int> KNIGHT_MOVES[8] = {{1, 2}, {2, 1}, {-1, 2}, {2, -1}, {1, -2}, {-2, 1}, {-1, -2}, {-2, -1}};
 
-vector<Move> Knight::moves(vector<vector<Piece*>> &board, char, char) {
-    vector<Move> ans;
+pair<char, unsigned long long int> Knight::moves(vector<vector<Piece*>> &board, char, char) {
+    pair<char, unsigned long long int> ans = {8*row+col, 0};
     int r, c;
     for(int dir = 0; dir < 8; ++dir) {
         r = row + KNIGHT_MOVES[dir].first;
         c = col + KNIGHT_MOVES[dir].second;
         if(r < 0 || c < 0 || r > 7 || c > 7) continue;
         if(board[r][c]->player != player)
-            ans.push_back(Move(row, col, r, c));
+            ans.second |= (1LL << (8LL*r+c));
     }
     return ans;
 }
@@ -168,15 +175,15 @@ Knight::~Knight() {}
 
 const pair<int, int> LINEAR_MOVES[8] = {{1, 1}, {1, -1}, {-1, -1}, {-1, 1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}};
 
-vector<Move> Bishop::moves(vector<vector<Piece*>> &board, char, char) {
-    vector<Move> ans;
+pair<char, unsigned long long int> Bishop::moves(vector<vector<Piece*>> &board, char, char) {
+    pair<char, unsigned long long int> ans = {8*row+col, 0};
     int r, c;
     for(int dir = 0; dir < 4; ++dir) {
         r = row + LINEAR_MOVES[dir].first;
         c = col + LINEAR_MOVES[dir].second;
         while(r >= 0 && c >= 0 && r < 8 && c < 8) {
             if(board[r][c]->player == player) break;
-                ans.push_back(Move(row, col, r, c));
+            ans.second |= (1LL << (8LL*r+c));
             if(board[r][c]->player == !player) break;
             r += LINEAR_MOVES[dir].first;
             c += LINEAR_MOVES[dir].second;
@@ -187,15 +194,15 @@ vector<Move> Bishop::moves(vector<vector<Piece*>> &board, char, char) {
 
 Bishop::~Bishop() {}
 
-vector<Move> Rook::moves(vector<vector<Piece*>> &board, char, char) {
-    vector<Move> ans;
+pair<char, unsigned long long int> Rook::moves(vector<vector<Piece*>> &board, char, char) {
+    pair<char, unsigned long long int> ans = {8*row+col, 0};
     int r, c;
     for(int dir = 4; dir < 8; ++dir) {
         r = row + LINEAR_MOVES[dir].first;
         c = col + LINEAR_MOVES[dir].second;
         while(r >= 0 && c >= 0 && r < 8 && c < 8) {
             if(board[r][c]->player == player) break;
-                ans.push_back(Move(row, col, r, c));
+            ans.second |= (1LL << (8LL*r+c));
             if(board[r][c]->player == !player) break;
             r += LINEAR_MOVES[dir].first;
             c += LINEAR_MOVES[dir].second;
@@ -206,15 +213,15 @@ vector<Move> Rook::moves(vector<vector<Piece*>> &board, char, char) {
 
 Rook::~Rook() {}
 
-vector<Move> Queen::moves(vector<vector<Piece*>> &board, char, char) {
-    vector<Move> ans;
+pair<char, unsigned long long int> Queen::moves(vector<vector<Piece*>> &board, char, char) {
+    pair<char, unsigned long long int> ans = {8*row+col, 0};
     int r, c;
     for(int dir = 0; dir < 8; ++dir) {
         r = row + LINEAR_MOVES[dir].first;
         c = col + LINEAR_MOVES[dir].second;
         while(r >= 0 && c >= 0 && r < 8 && c < 8) {
             if(board[r][c]->player == player) break;
-                ans.push_back(Move(row, col, r, c));
+            ans.second |= (1LL << (8LL*r+c));
             if(board[r][c]->player == !player) break;
             r += LINEAR_MOVES[dir].first;
             c += LINEAR_MOVES[dir].second;
@@ -268,15 +275,15 @@ void King::shadow_unmove(int r, int c, int, std::vector<std::vector<Piece*>> &bo
     row = r; col = c;
 }
 
-vector<Move> King::moves(vector<vector<Piece*>> &board, char castling_rights, char) {
-    vector<Move> ans;
+pair<char, unsigned long long int> King::moves(vector<vector<Piece*>> &board, char castling_rights, char) {
+    pair<char, unsigned long long int> ans = {8*row+col, 0};
     int r, c;
     for(int dir = 0; dir < 8; ++dir) {
         r = row + LINEAR_MOVES[dir].first;
         c = col + LINEAR_MOVES[dir].second;
         if(r < 0 || c < 0 || r > 7 || c > 7) continue;
         if(board[r][c]->player != player)
-            ans.push_back(Move(row, col, r, c));
+            ans.second |= (1LL << (8LL*r+c));
     }
     bool king_attacked = false;
     for(int i = 0; i < 8; ++i)
@@ -299,7 +306,7 @@ outer:
                         }
 outer_castle_king:
             if(can_castle)
-                ans.push_back(Move(row, 4, row, 6));
+                ans.second |= (1LL << (8LL*row+6));
         }
         if((castling_rights >> (2*player)) & 2 && board[row][3]->pt == clear && board[row][2]->pt == clear && board[row][1]->pt == clear) {
             bool can_castle = true;
@@ -313,7 +320,7 @@ outer_castle_king:
                         }
 outer_castle_queen:
             if(can_castle)
-                ans.push_back(Move(row, 4, row, 2));
+                ans.second |= (1LL << (8LL*row+2));
         }
     }
     return ans;
@@ -627,11 +634,14 @@ pair<Move, double> SAkuna::alphabeta(int depth=0, double alpha=-numeric_limits<d
     vector<pair<double, Move>> moves;
     for(int i = 0; i < 8; ++i)
         for(int j = 0; j < 8; ++j) if(board[i][j]->player == player) {
-            vector<Move> cands = board[i][j]->moves(board, castling_rights, en_passant);
-            for(auto cand : cands) if(valid(cand)) {
-                board[cand.r0][cand.c0]->shadow_move(cand.r1, cand.c1, halfmove_clock, board);
-                moves.push_back({eval(), cand});
-                board[cand.r1][cand.c1]->shadow_unmove(cand.r0, cand.c0, halfmove_clock, board);
+            pair<char, unsigned long long int> cands = board[i][j]->moves(board, castling_rights, en_passant);
+            for(int k = 0; k < 64; ++k) if(cands.second & (1LL << k)) {
+                Move cand = Move(cands.first/8, cands.first%8, k/8, k%8);
+                if(valid(cand)) {
+                    board[cand.r0][cand.c0]->shadow_move(cand.r1, cand.c1, halfmove_clock, board);
+                    moves.push_back({eval(), cand});
+                    board[cand.r1][cand.c1]->shadow_unmove(cand.r0, cand.c0, halfmove_clock, board);
+                }
             }
         }
     if(moves.size() == 0) {
