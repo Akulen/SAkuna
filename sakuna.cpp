@@ -590,7 +590,7 @@ double SAkuna::eval() {
         for(int j = 0; j < 8; ++j)
             if(board[i][j]->player >= 0) {
                 val += (1-2*(board[i][j]->player ^ player)) * (
-                        - 5*POSITION_TABLE[board[i][j]->pt][board[i][j]->player ? 7-i : i][board[i][j]->player ? 7-j : j]);
+                        POSITION_TABLE[board[i][j]->pt][board[i][j]->player ? i : 7-i][board[i][j]->player ? 7-j : j]);
             }
     return val;
 
