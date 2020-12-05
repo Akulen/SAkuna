@@ -1,0 +1,10 @@
+Implement:
+- Three fold repetition
+- 50 moves
+Performances:
+- Opening Book
+- Perfect endgame
+- bfs instead of dfs
+- transposition table
+- push unstable position further
+- have separate code for opening, middlegame, endgame
