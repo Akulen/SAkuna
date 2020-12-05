@@ -154,6 +154,15 @@ pair<char, unsigned long long int> Pawn::moves(vector<vector<Piece*>> &board, ch
     return ans;
 }
 
+bool Pawn::can_take(Piece* p, std::vector<std::vector<Piece*>>&, char en_passant) {
+    int front = row + (player == 1 ? -1 : 1);
+    if(abs(p->col - col) != 1) return false;
+    if(front == p->row) return true;
+    if(p->pt == pawn && en_passant/8 == p->col && p->row + (player == 1 ? -1 : 1) == en_passant%8)
+        return true;
+    return false;
+}
+
 Pawn::~Pawn() {}
 
 const pair<int, int> KNIGHT_MOVES[8] = {{1, 2}, {2, 1}, {-1, 2}, {2, -1}, {1, -2}, {-2, 1}, {-1, -2}, {-2, -1}};
@@ -169,6 +178,17 @@ pair<char, unsigned long long int> Knight::moves(vector<vector<Piece*>> &board, 
             ans.second |= (1LL << (8LL*r+c));
     }
     return ans;
+}
+
+bool Knight::can_take(Piece* p, std::vector<std::vector<Piece*>>&, char) {
+    int r, c;
+    for(int dir = 0; dir < 8; ++dir) {
+        r = row + KNIGHT_MOVES[dir].first;
+        if(r != p->row) continue;
+        c = col + KNIGHT_MOVES[dir].second;
+        if(c == p->col) return true;
+    }
+    return false;
 }
 
 Knight::~Knight() {}
@@ -192,6 +212,23 @@ pair<char, unsigned long long int> Bishop::moves(vector<vector<Piece*>> &board, 
     return ans;
 }
 
+bool Bishop::can_take(Piece* p, std::vector<std::vector<Piece*>> &board, char) {
+    int r, c;
+    for(int dir = 0; dir < 4; ++dir) {
+        if(LINEAR_MOVES[dir].first * (row-p->row) != LINEAR_MOVES[dir].second * (col-p->col))
+            continue;
+        r = row + LINEAR_MOVES[dir].first;
+        c = col + LINEAR_MOVES[dir].second;
+        while(r >= 0 && c >= 0 && r < 8 && c < 8) {
+            if(r == p->row && c == p->col) return true;
+            if(board[r][c]->player != -1) break;
+            r += LINEAR_MOVES[dir].first;
+            c += LINEAR_MOVES[dir].second;
+        }
+    }
+    return false;
+}
+
 Bishop::~Bishop() {}
 
 pair<char, unsigned long long int> Rook::moves(vector<vector<Piece*>> &board, char, char) {
@@ -209,6 +246,23 @@ pair<char, unsigned long long int> Rook::moves(vector<vector<Piece*>> &board, ch
         }
     }
     return ans;
+}
+
+bool Rook::can_take(Piece* p, std::vector<std::vector<Piece*>> &board, char) {
+    int r, c;
+    for(int dir = 4; dir < 8; ++dir) {
+        if(LINEAR_MOVES[dir].first * (row-p->row) != LINEAR_MOVES[dir].second * (col-p->col))
+            continue;
+        r = row + LINEAR_MOVES[dir].first;
+        c = col + LINEAR_MOVES[dir].second;
+        while(r >= 0 && c >= 0 && r < 8 && c < 8) {
+            if(r == p->row && c == p->col) return true;
+            if(board[r][c]->player != -1) break;
+            r += LINEAR_MOVES[dir].first;
+            c += LINEAR_MOVES[dir].second;
+        }
+    }
+    return false;
 }
 
 Rook::~Rook() {}
@@ -230,6 +284,23 @@ pair<char, unsigned long long int> Queen::moves(vector<vector<Piece*>> &board, c
     return ans;
 }
 
+bool Queen::can_take(Piece* p, std::vector<std::vector<Piece*>> &board, char) {
+    int r, c;
+    for(int dir = 0; dir < 8; ++dir) {
+        if(LINEAR_MOVES[dir].first * (row-p->row) != LINEAR_MOVES[dir].second * (col-p->col))
+            continue;
+        r = row + LINEAR_MOVES[dir].first;
+        c = col + LINEAR_MOVES[dir].second;
+        while(r >= 0 && c >= 0 && r < 8 && c < 8) {
+            if(r == p->row && c == p->col) return true;
+            if(board[r][c]->player != -1) break;
+            r += LINEAR_MOVES[dir].first;
+            c += LINEAR_MOVES[dir].second;
+        }
+    }
+    return false;
+}
+
 Queen::~Queen() {}
 
 void King::move(int r, int c, vector<vector<Piece*>> &board) {
@@ -240,24 +311,6 @@ void King::move(int r, int c, vector<vector<Piece*>> &board) {
     }
     Piece::move(r, c, board);
 }
-/*
-void Pawn::shadow_move(int r, int c, std::vector<std::vector<Piece*>> &board) {
-    if(col != c && board[r][c]->pt == clear) {
-        memory.push_back(board[4-player][c]);
-        board[4-player][c] = new Clear(4-player, c);
-    }
-    Piece::shadow_move(r, c, board);
-}
-
-void Pawn::shadow_unmove(int r, int c, std::vector<std::vector<Piece*>> &board) {
-    int r0 = row, c0 = col;
-    Piece::shadow_unmove(r, c, board);
-    if(c0 != c && board[r0][c0]->pt == clear) {
-        delete board[4-player][c0];
-        board[4-player][c0] = memory.back();
-        memory.pop_back();
-    }
-}*/
 
 void King::shadow_move(int r, int c, int halfmove_clock, std::vector<std::vector<Piece*>> &board) {
     if(col - c == 2) { // castle queen side
@@ -328,11 +381,8 @@ outer_castle_queen:
     return ans;
 }
 
-bool King::can_take(Piece* p, std::vector<std::vector<Piece*>> &board, char) {
-    if(pt == king && p->pt == king) {
-        return max(abs(row-p->row), abs(col-p->col)) < 2;
-    }
-    return Piece::can_take(p, board, -1);
+bool King::can_take(Piece* p, std::vector<std::vector<Piece*>>&, char) {
+    return max(abs(row-p->row), abs(col-p->col)) < 2;
 }
 
 King::~King() {}
@@ -494,13 +544,11 @@ void SAkuna::set_position(const string& fen, const vector<string>& moves) {
 
 bool SAkuna::check() {
     Piece* kg;
-    for(int i = 0; i < 8; ++i)
-        for(int j = 0; j < 8; ++j)
-            if(board[i][j]->player == player && board[i][j]->pt == king) {
-                kg = board[i][j];
-                goto found_king;
-            }
-found_king:
+    for(int i = 0; i < (int)material[player].size(); ++i)
+        if(material[player][i]->pt == king) {
+            kg = material[player][i];
+            break;
+        }
     for(int i = 0; i < 8; ++i)
         for(int j = 0; j < 8; ++j) if(board[i][j]->player == !kg->player)
             if(board[i][j]->can_take(kg, board, en_passant)) {
@@ -649,7 +697,7 @@ pair<Move, double> SAkuna::alphabeta(int depth=0, double alpha=-numeric_limits<d
     if(moves.size() == 0) {
         return {Move(-1, -1, -1, -1), check() ? -1000000 : 0};
     }
-    random_shuffle(moves.begin(), moves.end());
+    //random_shuffle(moves.begin(), moves.end());
     sort(moves.begin(), moves.end(), [] (const pair<double, Move> &a, const pair<double, Move> &b) -> bool {
             return a.first > b.first;
     });

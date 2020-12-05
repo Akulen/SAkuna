@@ -48,6 +48,7 @@ class Pawn : public virtual Piece {
     virtual void shadow_move(int, int, int, std::vector<std::vector<Piece*>>&);
     virtual void shadow_unmove(int, int, int, std::vector<std::vector<Piece*>>&);
     virtual std::pair<char, unsigned long long int> moves(std::vector<std::vector<Piece*>>&, char, char);
+    virtual bool can_take(Piece*, std::vector<std::vector<Piece*>>&, char);
     virtual ~Pawn();
 };
 
@@ -56,6 +57,7 @@ class Knight : public virtual Piece {
     Knight(int r, int c, int p) :
         Piece(r, c, p, knight) {}
     virtual std::pair<char, unsigned long long int> moves(std::vector<std::vector<Piece*>>&, char, char);
+    virtual bool can_take(Piece*, std::vector<std::vector<Piece*>>&, char);
     virtual ~Knight();
 };
 
@@ -64,6 +66,7 @@ class Bishop : public virtual Piece {
     Bishop(int r, int c, int p) :
         Piece(r, c, p, bishop) {}
     virtual std::pair<char, unsigned long long int> moves(std::vector<std::vector<Piece*>>&, char, char);
+    virtual bool can_take(Piece*, std::vector<std::vector<Piece*>>&, char);
     virtual ~Bishop();
 };
 
@@ -72,6 +75,7 @@ class Rook : public virtual Piece {
     Rook(int r, int c, int p) :
         Piece(r, c, p, rook) {}
     virtual std::pair<char, unsigned long long int> moves(std::vector<std::vector<Piece*>>&, char, char);
+    virtual bool can_take(Piece*, std::vector<std::vector<Piece*>>&, char);
     virtual ~Rook();
 };
 
@@ -80,6 +84,7 @@ class Queen : public virtual Piece {
     Queen(int r, int c, int p) :
         Piece(r, c, p, queen) {}
     virtual std::pair<char, unsigned long long int> moves(std::vector<std::vector<Piece*>>&, char, char);
+    virtual bool can_take(Piece*, std::vector<std::vector<Piece*>>&, char);
     virtual ~Queen();
 };
 
