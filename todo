@@ -9,3 +9,6 @@ Performances:
 - transposition table
 - push unstable position further
 - have separate code for opening, middlegame, endgame
+
+Bitboards:
+20 000 000 moves per second

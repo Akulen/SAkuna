@@ -23,9 +23,13 @@ int main() {
     {
         engine.set_position(fen, moves);
     });
-    uci.receive_go.connect([&] (const std::map<uci::command, std::string>&)
+    uci.receive_go.connect([&] (const std::map<uci::command, std::string>& commands)
     {
-        engine.start_search();
+        if(commands.count(uci::command::perft)) {
+            std::string depth = commands.at(uci::command::perft);
+            engine.divide(atoi(depth.c_str()));
+        } else
+            engine.start_search();
     });
 
     // Start communication with the UI through console.

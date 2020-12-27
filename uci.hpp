@@ -27,6 +27,7 @@ public:
     nodes          ,
     mate           ,
     move_time      ,
+    perft          ,
     infinite
   };
   enum class state
@@ -326,6 +327,8 @@ public:
             iss >> commands[command::mate           ];
           else if (token == "move_time"  )
             iss >> commands[command::move_time      ];
+          else if (token == "perft"  )
+            iss >> commands[command::perft          ];
           else if (token == "infinite"   )
             commands[command::infinite];
         receive_go(commands);

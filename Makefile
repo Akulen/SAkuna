@@ -5,7 +5,7 @@ EXEC=SAkuna
 
 all: $(EXEC)
 
-SAkuna: main.o sakuna.o board.o
+SAkuna: main.o sakuna.o board.o magicmoves.o piece.o move.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 %.o: %.cpp
