@@ -1,5 +1,6 @@
 #include "sakuna.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <utility>
@@ -36,24 +37,23 @@ bool SAkuna::valid(Move move) {
 }
 
 const int MAX_MOVES = 256;
-const int MAX_DEPTH = 6;
 
-pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-numeric_limits<double>::infinity(), double beta=numeric_limits<double>::infinity()) {
+pair<Move, double> SAkuna::alphabeta(Board board, int max_depth, int depth=0, double alpha=-numeric_limits<double>::infinity(), double beta=numeric_limits<double>::infinity()) {
     Move moveList[MAX_MOVES];
     Move *endMoves = board.moves(moveList);
     int nbMoves = endMoves - moveList;
     if(nbMoves == 0) {
-        return {Move(-1, -1, -1, -1), board.in_check(board.player) ? (MAX_DEPTH-depth) * -1000000 : 0};
+        return {Move(-1, -1, -1, -1), board.in_check(board.player) ? (max_depth-depth) * -1000000 : 0};
     }
     if(board.halfmove_clock == 50)
         return {Move(-1, -1, -1, -1), 0};
     if(repetition.count(board) && repetition[board] > 2)
         return {Move(-1, -1, -1, -1), 0};
-    if(depth == MAX_DEPTH) {
+    if(depth == max_depth) {
         ++nb_states;
         return {Move(-1,-1,-1,-1), board.eval()};
     }
-    if(transposition.count(board) && transposition[board].first <= depth) {
+    if(transposition.count(board) && transposition[board].first >= max_depth-depth) {
         return transposition[board].second;
     }
     vector<pair<double, int>> moves(endMoves-moveList);
@@ -68,7 +68,7 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
             }
         }
     }
-    if(depth == MAX_DEPTH-1) {
+    if(depth == max_depth-1) {
         random_shuffle(moveList+skipFirst, endMoves);
         for(int i = 0; i < endMoves-moveList; ++i) {
             moves[i] = {0, i};
@@ -76,7 +76,9 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
     } else {
         for(int i = 1; i < endMoves-moveList; ++i) {
             board.do_move(moveList[i], &newBd);
-            moves[i] = {newBd.eval(), i};
+            if(transposition.count(newBd) == 0)
+                transposition[newBd] = {0, {Move(-1, -1, -1, -1), newBd.eval()}};
+            moves[i] = {transposition[newBd].second.second, i};
         }
         sort(moves.begin()+skipFirst, moves.end(), [] (const pair<double, int> &a, const pair<double, int> &b) -> bool {
                 return a.first < b.first;
@@ -89,7 +91,7 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
         if(repetition.count(newBd) == 0)
             repetition[newBd] = 0;
         ++repetition[newBd];
-        double score = -alphabeta(newBd, depth+1, -beta, -alpha).second;
+        double score = -alphabeta(newBd, max_depth, depth+1, -beta, -alpha).second;
         --repetition[newBd];
         if(score > bestScore) {
             bestScore = score;
@@ -99,16 +101,25 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
         if(alpha >= beta)
             break;
     }
-    transposition[board] = {depth, {*bestMove, bestScore}};
+    transposition[board] = {max_depth-depth, {*bestMove, bestScore}};
     return {*bestMove, bestScore};
 }
 
 void SAkuna::start_search() {
+    pair<Move, double> bestResult =
+        {Move(-1, -1, -1, -1), -numeric_limits<double>::infinity()};
+    auto start_time = chrono::steady_clock::now();
+    auto cur_time = chrono::steady_clock::now();
     nb_states = 0;
-    pair<Move, double> result = alphabeta(board);
+    for(int max_depth = 2; chrono::duration_cast<chrono::milliseconds>(cur_time-start_time).count() < 500; ++max_depth) {
+        pair<Move, double> result = alphabeta(board, max_depth);
+        printf("info depth %d score cp %d nodes %d\n", max_depth, (int)result.second * (board.player ? -1 : 1), nb_states);
+        if(result.second >= bestResult.second)
+            bestResult = result;
+        cur_time = chrono::steady_clock::now();
+    }
     //fprintf(stderr, "%d\n", nb_states);
-    printf("bestmove %s\n", result.first.toString().c_str());
-    printf("info depth %d score cp %d nodes %d\n", MAX_DEPTH, (int)result.second, nb_states);
+    printf("bestmove %s\n", bestResult.first.toString().c_str());
 
     //// count collisions
     //size_t collisions = 0, empty = 0;

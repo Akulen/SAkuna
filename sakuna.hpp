@@ -23,7 +23,7 @@ class SAkuna {
     void set_position(const std::string&, const std::vector<std::string>&);
     bool check();
     bool valid(Move);
-    std::pair<Move, double> alphabeta(Board, int, double, double);
+    std::pair<Move, double> alphabeta(Board, int, int, double, double);
     void start_search();
     void display_board();
     int perft(Board, int);
