@@ -17,6 +17,7 @@ void SAkuna::init() {
 }
 
 void SAkuna::set_position(const string& fen, const vector<string>& moves) {
+    fprintf(stderr, "%d => %s\n", (int)moves.size(), fen.c_str());
     repetition.clear();
     vector<string> sub_moves;
     for(int i = 0; i <= (int)moves.size(); ++i) {
@@ -43,7 +44,7 @@ pair<Move, double> SAkuna::alphabeta(Board board, int max_depth, int depth=0, do
     Move *endMoves = board.moves(moveList);
     int nbMoves = endMoves - moveList;
     if(nbMoves == 0) {
-        return {Move(-1, -1, -1, -1), board.in_check(board.player) ? (max_depth-depth) * -1000000 : 0};
+        return {Move(-1, -1, -1, -1), board.in_check(board.player) ? (depth+1) * -1'000'000'000LL : 0};
     }
     if(board.halfmove_clock == 50)
         return {Move(-1, -1, -1, -1), 0};
@@ -105,20 +106,49 @@ pair<Move, double> SAkuna::alphabeta(Board board, int max_depth, int depth=0, do
     return {*bestMove, bestScore};
 }
 
-void SAkuna::start_search() {
+void SAkuna::start_search(int wtime, int btime) {
+    transposition.clear();
     pair<Move, double> bestResult =
         {Move(-1, -1, -1, -1), -numeric_limits<double>::infinity()};
     auto start_time = chrono::steady_clock::now();
     auto cur_time = chrono::steady_clock::now();
     nb_states = 0;
-    for(int max_depth = 2; chrono::duration_cast<chrono::milliseconds>(cur_time-start_time).count() < 500; ++max_depth) {
+    if(board.player) swap(wtime, btime);
+    int max_depth;
+    for(max_depth = 2; chrono::duration_cast<chrono::milliseconds>(cur_time-start_time).count() < wtime/200; max_depth+=2) {
         pair<Move, double> result = alphabeta(board, max_depth);
-        printf("info depth %d score cp %d nodes %d\n", max_depth, (int)result.second * (board.player ? -1 : 1), nb_states);
+        cur_time = chrono::steady_clock::now();
+        if(abs(result.second) < 1'000'000'000LL)
+            printf("info depth %d score cp %lld nodes %d nps %d\n", max_depth, (long long int)result.second, nb_states, (int)((double)nb_states / chrono::duration_cast<chrono::nanoseconds>(cur_time-start_time).count()*1'000'000'000));
+        else
+            printf("info depth %d score mate %lld nodes %d nps %d\n", max_depth, ((long long int)result.second / 1'000'000'000 + 1 + (board.player ? 1 : 0))/2, nb_states, (int)((double)nb_states / chrono::duration_cast<chrono::nanoseconds>(cur_time-start_time).count()*1'000'000'000));
         if(result.second >= bestResult.second)
             bestResult = result;
-        cur_time = chrono::steady_clock::now();
     }
-    //fprintf(stderr, "%d\n", nb_states);
+    max_depth -= 2;
+    vector<Move> pv;
+    Move cur_move = bestResult.first;
+    pv.push_back(cur_move);
+    Board newBd, curBd = board;
+    for(int i = 0; i < max_depth; ++i) {
+        curBd.do_move(cur_move, &newBd);
+        if(transposition.count(newBd)) {
+            cur_move = transposition[newBd].second.first;
+            pv.push_back(cur_move);
+        } else {
+            break;
+        }
+        curBd = newBd;
+    }
+    if(abs(bestResult.second) < 1'000'000'000LL)
+        printf("info depth %d score cp %lld nodes %d nps %d", max_depth, (long long int)bestResult.second, nb_states, (int)((double)nb_states / chrono::duration_cast<chrono::nanoseconds>(cur_time-start_time).count()*1'000'000'000));
+    else
+        printf("info depth %d score mate %lld nodes %d nps %d", max_depth, ((long long int)bestResult.second / 1'000'000'000 + 1 + (board.player ? 1 : 0))/2, nb_states, (int)((double)nb_states / chrono::duration_cast<chrono::nanoseconds>(cur_time-start_time).count()*1'000'000'000));
+    printf(" pv");
+    for(auto m : pv)
+        printf(" %s", m.toString().c_str());
+    printf("\n");
+    fprintf(stderr, "%d\n", (int)board.player);
     printf("bestmove %s\n", bestResult.first.toString().c_str());
 
     //// count collisions

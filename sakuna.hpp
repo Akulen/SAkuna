@@ -24,7 +24,7 @@ class SAkuna {
     bool check();
     bool valid(Move);
     std::pair<Move, double> alphabeta(Board, int, int, double, double);
-    void start_search();
+    void start_search(int, int);
     void display_board();
     int perft(Board, int);
     void divide(int);

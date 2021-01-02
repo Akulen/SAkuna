@@ -4,7 +4,7 @@ Implement:
 Performances:
 - Opening Book
 - Perfect endgame
-- bfs instead of dfs
+- (bfs instead of dfs)
 - push unstable position further
 - have separate code for opening, middlegame, endgame
 

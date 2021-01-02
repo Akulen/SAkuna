@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++11 -g -W -Wall -Wextra
+CFLAGS=-std=c++17 -g -W -Wall -Wextra
 LDFLAGS=-g
 EXEC=SAkuna
 

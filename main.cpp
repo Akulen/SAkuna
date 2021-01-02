@@ -28,8 +28,13 @@ int main() {
         if(commands.count(uci::command::perft)) {
             std::string depth = commands.at(uci::command::perft);
             engine.divide(atoi(depth.c_str()));
-        } else
-            engine.start_search();
+        } else {
+            int wtime = commands.count(uci::command::white_time) ?
+                atoi(commands.at(uci::command::white_time).c_str()) : 100'000;
+            int btime = commands.count(uci::command::black_time) ?
+                atoi(commands.at(uci::command::black_time).c_str()) : 100'000;
+            engine.start_search(wtime, btime);
+        }
     });
 
     // Start communication with the UI through console.
