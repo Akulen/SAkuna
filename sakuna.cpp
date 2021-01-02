@@ -16,7 +16,16 @@ void SAkuna::init() {
 }
 
 void SAkuna::set_position(const string& fen, const vector<string>& moves) {
-    board = Board(fen, moves);
+    repetition.clear();
+    vector<string> sub_moves;
+    for(int i = 0; i <= (int)moves.size(); ++i) {
+        board = Board(fen, sub_moves);
+        if(repetition.count(board) == 0)
+            repetition[board] = 0;
+        ++repetition[board];
+        if(i < (int)moves.size())
+            sub_moves.push_back(moves[i]);
+    }
 }
 
 // check if player is in check
@@ -27,13 +36,9 @@ bool SAkuna::valid(Move move) {
 }
 
 const int MAX_MOVES = 256;
-const int MAX_DEPTH = 8;
+const int MAX_DEPTH = 6;
 
 pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-numeric_limits<double>::infinity(), double beta=numeric_limits<double>::infinity()) {
-    if(depth == MAX_DEPTH) {
-        ++nb_states;
-        return {Move(-1,-1,-1,-1), board.eval()};
-    }
     Move moveList[MAX_MOVES];
     Move *endMoves = board.moves(moveList);
     int nbMoves = endMoves - moveList;
@@ -42,6 +47,12 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
     }
     if(board.halfmove_clock == 50)
         return {Move(-1, -1, -1, -1), 0};
+    if(repetition.count(board) && repetition[board] > 2)
+        return {Move(-1, -1, -1, -1), 0};
+    if(depth == MAX_DEPTH) {
+        ++nb_states;
+        return {Move(-1,-1,-1,-1), board.eval()};
+    }
     if(transposition.count(board) && transposition[board].first <= depth) {
         return transposition[board].second;
     }
@@ -75,7 +86,11 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
     double bestScore = -numeric_limits<double>::infinity();
     for(auto m : moves) {
         board.do_move(moveList[m.second], &newBd);
+        if(repetition.count(newBd) == 0)
+            repetition[newBd] = 0;
+        ++repetition[newBd];
         double score = -alphabeta(newBd, depth+1, -beta, -alpha).second;
+        --repetition[newBd];
         if(score > bestScore) {
             bestScore = score;
             bestMove = &moveList[m.second];

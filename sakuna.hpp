@@ -16,6 +16,7 @@ class SAkuna {
     Board board;
     int nb_states;
     std::unordered_map<Board, std::pair<int, std::pair<Move, double>>> transposition;
+    std::unordered_map<Board, int> repetition;
     public:
     SAkuna(uci&);
     void init();
