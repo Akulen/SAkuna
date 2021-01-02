@@ -2,6 +2,7 @@
 #define SAKUNA_HPP_
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "board.hpp"
@@ -14,6 +15,7 @@ class SAkuna {
     uci &u;
     Board board;
     int nb_states;
+    std::unordered_map<Board, std::pair<int, std::pair<Move, double>>> transposition;
     public:
     SAkuna(uci&);
     void init();

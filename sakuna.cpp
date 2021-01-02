@@ -12,7 +12,7 @@ SAkuna::SAkuna(uci &_u) : u(_u) {
 }
 
 void SAkuna::init() {
-    srand(time(NULL));
+    srand(42);
 }
 
 void SAkuna::set_position(const string& fen, const vector<string>& moves) {
@@ -27,7 +27,7 @@ bool SAkuna::valid(Move move) {
 }
 
 const int MAX_MOVES = 256;
-const int MAX_DEPTH = 6;
+const int MAX_DEPTH = 8;
 
 pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-numeric_limits<double>::infinity(), double beta=numeric_limits<double>::infinity()) {
     if(depth == MAX_DEPTH) {
@@ -40,17 +40,37 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
     if(nbMoves == 0) {
         return {Move(-1, -1, -1, -1), board.in_check(board.player) ? (MAX_DEPTH-depth) * -1000000 : 0};
     }
-    vector<pair<double, int>> moves;
-    Board newBd;
-    //random_shuffle(moveList, endMoves);
-    for(int i = 0; i < endMoves-moveList; ++i) {
-        board.do_move(moveList[i], &newBd);
-        moves.push_back({newBd.eval(), i});
-        //moves.push_back({0, i});
+    if(board.halfmove_clock == 50)
+        return {Move(-1, -1, -1, -1), 0};
+    if(transposition.count(board) && transposition[board].first <= depth) {
+        return transposition[board].second;
     }
-    sort(moves.begin(), moves.end(), [] (const pair<double, int> &a, const pair<double, int> &b) -> bool {
-            return a.first < b.first;
-    });
+    vector<pair<double, int>> moves(endMoves-moveList);
+    Board newBd;
+    bool skipFirst = false;
+    if(transposition.count(board) && transposition[board].second.first.r0 != -1) {
+        for(int i = 0; i < endMoves-moveList; ++i) {
+            if(moveList[i] == transposition[board].second.first) {
+                swap(moveList[0], moveList[i]);
+                skipFirst = true;
+                break;
+            }
+        }
+    }
+    if(depth == MAX_DEPTH-1) {
+        random_shuffle(moveList+skipFirst, endMoves);
+        for(int i = 0; i < endMoves-moveList; ++i) {
+            moves[i] = {0, i};
+        }
+    } else {
+        for(int i = 1; i < endMoves-moveList; ++i) {
+            board.do_move(moveList[i], &newBd);
+            moves[i] = {newBd.eval(), i};
+        }
+        sort(moves.begin()+skipFirst, moves.end(), [] (const pair<double, int> &a, const pair<double, int> &b) -> bool {
+                return a.first < b.first;
+        });
+    }
     Move *bestMove = moveList;
     double bestScore = -numeric_limits<double>::infinity();
     for(auto m : moves) {
@@ -64,15 +84,28 @@ pair<Move, double> SAkuna::alphabeta(Board board, int depth=0, double alpha=-num
         if(alpha >= beta)
             break;
     }
+    transposition[board] = {depth, {*bestMove, bestScore}};
     return {*bestMove, bestScore};
 }
 
 void SAkuna::start_search() {
     nb_states = 0;
     pair<Move, double> result = alphabeta(board);
-    fprintf(stderr, "%d\n", nb_states);
+    //fprintf(stderr, "%d\n", nb_states);
     printf("bestmove %s\n", result.first.toString().c_str());
-    printf("info depth %d score %d\n", MAX_DEPTH, (int)result.second);
+    printf("info depth %d score cp %d nodes %d\n", MAX_DEPTH, (int)result.second, nb_states);
+
+    //// count collisions
+    //size_t collisions = 0, empty = 0;
+    //for (auto bucket = transposition.bucket_count(); bucket--;) {
+    //    if (transposition.bucket_size(bucket) == 0)
+    //        empty++;
+    //    else
+    //        collisions += transposition.bucket_size(bucket) - 1;
+    //}
+    //fprintf(stderr, "collisions = %f %f %lu %lu %lu\n",
+    //        transposition.max_load_factor(), transposition.load_factor(),
+    //        transposition.bucket_count(), collisions, empty);
 }
 
 int SAkuna::perft(Board board, int depth) {

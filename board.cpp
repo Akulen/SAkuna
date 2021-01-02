@@ -80,6 +80,9 @@ Bitboard CASTLING_PATH[4] = {
     MASK_RANK[7] & (MASK_FILE[2] | MASK_FILE[3])
 };
 
+uint64_t ZOBRIST_PIECE[64][12];
+uint64_t ZOBRIST_EXTRA[13];
+
 constexpr bool more_than_one(Bitboard b) {
   return b & (b - 1);
 }
@@ -136,6 +139,12 @@ void lookup_table_init() {
             if(DIAG[i][j])
                 DIAG[i][j] |= posi | posj;
         }
+    srand(424242);
+    for(int i = 0; i < 64; ++i)
+        for(int j = 0; j < 12; ++j)
+            ZOBRIST_PIECE[i][j] = ((u_int64_t)rand()*(u_int64_t)RAND_MAX)+rand();
+    for(int i = 0; i < 13; ++i)
+        ZOBRIST_EXTRA[i] = ((u_int64_t)rand()*(u_int64_t)RAND_MAX)+rand();
 }
 
 void display_bitboard(Bitboard Bb) {
@@ -333,6 +342,20 @@ Board::Board(const string &fen, const vector<string> &moves) {
         if(player) ++fullmove_number;
         player ^= 1;
     }
+    key = player ? ZOBRIST_EXTRA[0] : 0;
+    for(int i = 0; i < 4; ++i)
+        if(castling_rights & (1 << i))
+            key ^= ZOBRIST_EXTRA[1+i];
+    if(en_passant != SQ_NONE)
+        key ^= ZOBRIST_EXTRA[5+en_passant%8];
+    Bitboard b;
+    for(int p = 0; p < 2; ++p)
+        for(int pt = 0; pt < 6; ++pt) {
+            b = pieces[p][pt];
+            while(b) {
+                key ^= ZOBRIST_PIECE[pop_lsb(&b)][pt+6*p];
+            }
+        }
 
     init_done = false;
     //fprintf(stderr, "%s %lu\n", fen.c_str(), moves.size());
@@ -682,7 +705,7 @@ Piece_Type Board::piece_on(Square sq) const {
     return pt_empty;
 }
 
-void Board::do_move(Move m, Board* newBd) {
+void Board::do_move(Move m, Board* newBd) const {
     for(int p = 0; p < 2; ++p)
         for(int pt = 0; pt < 6; ++pt)
             newBd->pieces[p][pt] = pieces[p][pt];
@@ -692,6 +715,13 @@ void Board::do_move(Move m, Board* newBd) {
     newBd->halfmove_clock = halfmove_clock;
     newBd->fullmove_number = fullmove_number;
     newBd->init_done = false;
+    newBd->key = key ^ ZOBRIST_EXTRA[0];
+
+    for(int i = 0; i < 4; ++i)
+        if(castling_rights & (1 << i))
+            newBd->key ^= ZOBRIST_EXTRA[1+i];
+    if(en_passant != SQ_NONE)
+        newBd->key ^= ZOBRIST_EXTRA[5+en_passant%8];
 
     int c0 = m.c0;
     int r0 = m.r0;
@@ -713,21 +743,30 @@ void Board::do_move(Move m, Board* newBd) {
     Piece_Type opp_pt = piece_on(to);
     if(opp_pt != pt_empty) {
         newBd->pieces[!player][opp_pt] ^= 1LL << to;
+        newBd->key ^= ZOBRIST_PIECE[to][opp_pt+6*(!player)];
         newBd->halfmove_clock = -1;
     }
     newBd->pieces[player][us_pt] ^= (1LL << from) | (1LL << to);
+    newBd->key ^= ZOBRIST_PIECE[from][us_pt+6*player];
+    newBd->key ^= ZOBRIST_PIECE[to][us_pt+6*player];
     switch(us_pt) {
         case pt_pawn:
             newBd->halfmove_clock = -1;
             if(r0 == 1+5*player && r1 == 3+player)
                 new_en_passant = Square(8*(2+3*player) + c0);
-            if(to == en_passant)
+            if(to == en_passant) {
                 newBd->pieces[!player][pt_pawn] ^=
                     1LL << (player ? en_passant+8 : en_passant-8);
+                newBd->key ^=
+                    ZOBRIST_PIECE[player ? en_passant+8 : en_passant-8]
+                        [pt_pawn+6*(!player)];
+            }
             if(r1 == (player ? 0 : 7)) {
                 newBd->pieces[player][us_pt] ^= (1LL << to);
+                newBd->key ^= ZOBRIST_PIECE[to][us_pt+6*player];
                 assert(m.p != 0);
                 newBd->pieces[player][PT_PROM[m.p-1]] ^= (1LL << to);
+                newBd->key ^= ZOBRIST_PIECE[to][PT_PROM[m.p-1]+6*player];
             }
             break;
         case pt_knight:
@@ -741,16 +780,27 @@ void Board::do_move(Move m, Board* newBd) {
                 newBd->halfmove_clock = -1;
                 newBd->pieces[player][pt_rook] ^=
                     (1LL << (8*r0+7)) | (1LL << (8*r0+5));
+                newBd->key ^= ZOBRIST_PIECE[8*r0+7][pt_rook+6*player];
+                newBd->key ^= ZOBRIST_PIECE[8*r0+5][pt_rook+6*player];
             } else if(c0 - c1 == 2) {
                 newBd->halfmove_clock = -1;
                 newBd->pieces[player][pt_rook] ^=
                     (1LL << (8*r0)) | (1LL << (8*r0+3));
+                newBd->key ^= ZOBRIST_PIECE[8*r0][pt_rook+6*player];
+                newBd->key ^= ZOBRIST_PIECE[8*r0+3][pt_rook+6*player];
             }
             break;
         default:
             assert(false);
     }
     newBd->en_passant = new_en_passant;
+
+    for(int i = 0; i < 4; ++i)
+        if(newBd->castling_rights & (1 << i))
+            newBd->key ^= ZOBRIST_EXTRA[1+i];
+    if(new_en_passant != SQ_NONE)
+        newBd->key ^= ZOBRIST_EXTRA[5+new_en_passant%8];
+
     ++newBd->halfmove_clock;
     if(player) ++newBd->fullmove_number;
     newBd->player ^= 1;
@@ -853,54 +903,28 @@ const double POSITION_TABLE[8][8][8] = {
 double Board::eval() const {
     double sc[3] = {0, 0, 0};
     for(int p = 0; p < 2; ++p)
-        for(int pt = 0; pt < 6; ++pt)
+        for(int pt = 0; pt < 5; ++pt)
             sc[p] += VALUES[pt] * count_bits(pieces[p][pt]);
-    //double sc = sc = (sc > 0 ? 1 : -1) * pow(abs(sc), 1.1); // trade down if up material
-    sc[2] = pow(sc[1], 1.1) - pow(sc[0], 1.1);
+    // trade down if up material
+    //sc[2] = 100 * (pow(sc[1], 0.9) - pow(sc[0], 0.9)) / pow(100, 0.9);
+    sc[2] = sc[1] - sc[0];
+    bool endgame = is_endgame(0) && is_endgame(1);
     Bitboard b;
     for(int p = 0; p < 2; ++p)
         for(int pt = 0; pt < 6; ++pt) {
             b = pieces[p][pt];
             while(b) {
                 Square cur = pop_lsb(&b);
-                sc[2] += (2*p-1) *
-                  POSITION_TABLE[pt][p ? cur/8 : 7-cur/8][p ? cur%8 : 7-cur%8];
+                if(endgame && (pt == pt_pawn || pt == pt_king))
+                    sc[2] += (2*p-1) *
+                      POSITION_TABLE[pt+(pt==pt_pawn?6:2)]
+                      [p?cur/8:7-cur/8][p?cur%8:7-cur%8];
+                else
+                    sc[2] += (2*p-1) *
+                      POSITION_TABLE[pt][p?cur/8:7-cur/8][p?cur%8:7-cur%8];
             }
         }
     return (player ? 1 : -1) * sc[2];
-    //double sc = 0;
-    //for(int p = 0; p < 2; ++p)
-    //    for(int pt = 0; pt < 6; ++pt)
-    //        sc += (2*p-1) * PT_VALUE[pt] * count_bits(pieces[p][pt]);
-    //return (player ? 1 : -1) * sc;
-    //double val = 0;
-    //bool endgame = false;
-    //int queen_cnt[2] = {0, 0};
-    //int minor_cnt[2] = {0, 0};
-    //int major_cnt[2] = {0, 0};
-    //for(int i = 0; i < 8; ++i)
-    //    for(int j = 0; j < 8; ++j)
-    //        if(board[i][j]->player >= 0) {
-    //            val += (1-2*(board[i][j]->player ^ player)) * (
-    //                    VALUES[board[i][j]->pt]);
-    //            switch(board[i][j]->pt) {
-    //                case queen:
-    //                    ++queen_cnt[board[i][j]->player];
-    //                    break;
-    //                case knight:
-    //                case bishop:
-    //                    ++minor_cnt[board[i][j]->player];
-    //                    break;
-    //                case rook:
-    //                    ++major_cnt[board[i][j]->player];
-    //                    break;
-    //                default:
-    //                    break;
-    //            };
-    //        }
-    //bool endgame = (queen_cnt[0] == 0 || (queen_cnt[0] == 1 && minor_cnt[0] < 2 && major_cnt[0] == 0))
-    //    && (queen_cnt[1] == 0 || (queen_cnt[1] == 1 && minor_cnt[1] < 2 && major_cnt[1] == 0));
-    //val = (val > 0 ? 1 : -1) * pow(abs(val), 1.1); // trade down if up material
     //for(int i = 0; i < 8; ++i)
     //    for(int j = 0; j < 8; ++j)
     //        if(board[i][j]->player >= 0) {
@@ -909,6 +933,25 @@ double Board::eval() const {
     //        }
     //return val;
 
+}
+
+bool Board::operator == (const Board& other) const {
+    if(key != other.key) return false;
+    for(int p = 0; p < 2; ++p)
+        for(int pt = 0; pt < 6; ++pt)
+            if(pieces[p][pt] != other.pieces[p][pt])
+                return false;
+    return castling_rights == other.castling_rights
+        && en_passant == other.en_passant
+        && player == other.player;
+    //ignores 50 move rule and 3fold repetition
+}
+
+bool Board::is_endgame(bool) const {
+    return pieces[player][pt_queen] == 0 || (
+        !more_than_one(pieces[player][pt_queen]) &&
+        !more_than_one(pieces[player][pt_knight]|pieces[player][pt_bishop]) &&
+        pieces[player][pt_rook] == 0);
 }
 
 

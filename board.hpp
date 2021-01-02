@@ -31,18 +31,19 @@ enum Piece_Type :int {
 void lookup_table_init();
 
 class Board {
+    public:
     // raw data
     Bitboard pieces[2][6];
     char castling_rights;
     Square en_passant;
+    bool player;
     int halfmove_clock;
+    int fullmove_number;
     // derived data
     bool init_done;
     Bitboard checkers, blockers;
-    public:
+    uint64_t key;
     Bitboard allPieces[3];
-    bool player;
-    int fullmove_number;
     Board();
     Board(const std::string&, const std::vector<std::string>&);
     void init();
@@ -56,11 +57,22 @@ class Board {
     Move* make_moves(Move*, Piece_Type);
     bool legal(Move) const;
     Piece_Type piece_on(Square) const;
-    void do_move(Move, Board*);
+    void do_move(Move, Board*) const;
     bool in_check(int) const;
     void display() const;
     double eval() const;
+    bool operator == (const Board&) const;
+    bool is_endgame(bool) const;
     ~Board() {};
 };
+
+namespace std {
+    template <>
+    struct hash<Board> {
+        size_t operator()(const Board& k) const {
+            return k.key;
+        }
+    };
+}
 
 #endif

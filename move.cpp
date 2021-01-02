@@ -26,3 +26,7 @@ string Move::toString() {
     }
     return ans;
 }
+
+bool Move::operator == (const Move& other) const {
+    return r0 == other.r0 && c0 == other.c0 && r1 == other.r1 && c1 == other.c1 && p == other.p;
+}
